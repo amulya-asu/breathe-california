@@ -98,5 +98,4 @@ Open `http://localhost:5173` in your browser.
 | Frontend | React 19, Vite 8, Framer Motion |
 | Styling | CSS-in-JS (inline + `<style>` blocks), Glassmorphism |
 | Backend | Node.js, Express 4, Anthropic SDK |
-| AI | Claude (claude-opus-4-6) |
 | Data | Stub data (EPA AQS / NOAA ISD / Azure Data Lake integration planned) |
