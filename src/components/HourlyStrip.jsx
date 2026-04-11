@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { COUNTIES } from '../stubs/data';
 import { aqiColor } from '../utils/aqi';
 
-const TABS = ['24h', '48h', '72h'];
-const MULTIPLIERS = { '24h': 1, '48h': 1.12, '72h': 0.88 };
+const TABS = ['24h'];  // Only 24h from live data
 
 function getHourLabel(offsetFromNow) {
   if (offsetFromNow === 0) return 'Now';
@@ -22,12 +20,10 @@ function pmToAqi(pm) {
   return Math.round(201 + ((pm - 150.4) / 99.6) * 99);
 }
 
-export default function HourlyStrip({ county }) {
+export default function HourlyStrip({ county, forecast }) {
   const [tab, setTab] = useState('24h');
 
-  const base = COUNTIES[county]?.hourly ?? [];
-  const mult = MULTIPLIERS[tab];
-  const hours = base.map((pm) => Math.round(pm * mult * 10) / 10);
+  const hours = forecast?.hourly ?? [];
 
   const maxPm = Math.max(...hours, 1);
   const BAR_MAX_H = 36; // px — max bar height

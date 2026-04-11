@@ -1,20 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { COUNTIES, CHAT_RESPONSES } from '../stubs/data';
+import { sendChat } from '../api';
 
 const WELCOME = 'Ask me about air quality, outdoor activities, or what to expect this week.';
 const MAX_INPUT = 500;
-
-function stubFallback(message, county) {
-  const lower = message.toLowerCase();
-  for (const { keywords, handler } of CHAT_RESPONSES) {
-    if (keywords.some((k) => lower.includes(k))) {
-      return handler(county);
-    }
-  }
-  const c = COUNTIES[county];
-  if (!c) return 'Sorry, I don\'t have data for that county right now.';
-  return `${county} AQI is currently ${c.aqi} (${c.status}). PM2.5 is ${c.pm} µg/m³. ${c.desc}`;
-}
 
 export default function ChatBar({ county }) {
   const [messages, setMessages] = useState([
@@ -25,12 +13,10 @@ export default function ChatBar({ county }) {
   const bottomRef = useRef(null);
   const inputRef  = useRef(null);
 
-  // Scroll to latest message
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  // Reset conversation when county changes
   useEffect(() => {
     setMessages([{ role: 'bot', text: WELCOME }]);
   }, [county]);
@@ -44,30 +30,10 @@ export default function ChatBar({ county }) {
     setLoading(true);
 
     try {
-      const c = COUNTIES[county] ?? {};
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message:  text,
-          county,
-          aqi:      c.aqi,
-          status:   c.status,
-          pm:       c.pm,
-          tmr:      c.tmr,
-          temp:     c.temp,
-          wind:     c.wind,
-          humidity: c.humidity,
-        }),
-      });
-
-      if (!res.ok) throw new Error(`status ${res.status}`);
-      const { reply } = await res.json();
+      const reply = await sendChat(text, county);
       setMessages((prev) => [...prev, { role: 'bot', text: reply }]);
     } catch {
-      // Graceful fallback — never show raw error to user
-      const fallback = stubFallback(text, county);
-      setMessages((prev) => [...prev, { role: 'bot', text: fallback }]);
+      setMessages((prev) => [...prev, { role: 'bot', text: 'Sorry, I could not connect to the AI service right now.' }]);
     } finally {
       setLoading(false);
       inputRef.current?.focus();
@@ -108,8 +74,6 @@ export default function ChatBar({ county }) {
           text-transform: uppercase;
           color: rgba(255,255,255,0.48);
         }
-
-        /* Message list */
         .chat-messages {
           display: flex;
           flex-direction: column;
@@ -123,8 +87,6 @@ export default function ChatBar({ county }) {
         .chat-messages::-webkit-scrollbar       { width: 2px; }
         .chat-messages::-webkit-scrollbar-track  { background: transparent; }
         .chat-messages::-webkit-scrollbar-thumb  { background: rgba(255,255,255,0.18); border-radius: 1px; }
-
-        /* Bubbles */
         .bubble {
           max-width: 80%;
           padding: 10px 14px;
@@ -148,8 +110,6 @@ export default function ChatBar({ county }) {
           border-bottom-right-radius: 4px;
           color: #ffffff;
         }
-
-        /* Typing indicator */
         .typing-dots {
           align-self: flex-start;
           display: flex;
@@ -174,8 +134,6 @@ export default function ChatBar({ county }) {
           0%, 80%, 100% { opacity: 0.3; transform: scale(0.85); }
           40%            { opacity: 1;   transform: scale(1);    }
         }
-
-        /* Input row */
         .chat-input-row {
           display: flex;
           gap: 8px;
@@ -216,14 +174,12 @@ export default function ChatBar({ county }) {
         .chat-send:hover:not(:disabled)  { background: rgba(255,255,255,0.22); }
         .chat-send:disabled { opacity: 0.4; cursor: default; }
         .chat-send:focus-visible { outline: 2px solid rgba(255,255,255,0.5); outline-offset: 2px; }
-
         .char-count {
           font-family: 'Nunito', sans-serif;
           font-size: 11px;
           color: rgba(255,255,255,0.28);
           text-align: right;
         }
-
         @media (prefers-reduced-motion: reduce) {
           .dot { animation: none !important; opacity: 0.6; }
         }

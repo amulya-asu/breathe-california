@@ -1,8 +1,7 @@
-import { WEEKLY } from '../stubs/data';
 import { aqiColor } from '../utils/aqi';
 
-export default function WeeklyGrid({ county }) {
-  const days = WEEKLY[county] ?? [];
+export default function WeeklyGrid({ forecast }) {
+  const days = forecast?.weekly ?? [];
 
   return (
     <>
@@ -66,7 +65,7 @@ export default function WeeklyGrid({ county }) {
           color: #ffffff;
           line-height: 1;
         }
-        .day-range {
+        .day-pm25 {
           font-family: 'Nunito', sans-serif;
           font-weight: 400;
           font-size: 10px;
@@ -79,14 +78,11 @@ export default function WeeklyGrid({ county }) {
           border-radius: 50%;
           flex-shrink: 0;
         }
-
-        /* Tablet: 4+3 natural wrap */
         @media (max-width: 900px) {
           .weekly-grid {
             grid-template-columns: repeat(4, 1fr);
           }
         }
-        /* Mobile: 2 col */
         @media (max-width: 480px) {
           .weekly-grid {
             grid-template-columns: repeat(2, 1fr);
@@ -103,11 +99,11 @@ export default function WeeklyGrid({ county }) {
                 key={d.day}
                 role="listitem"
                 className={`day-card${i === 0 ? ' today' : ''}`}
-                aria-label={`${d.day}: AQI ${d.aqi}, PM2.5 ${d.lo}–${d.hi} µg/m³`}
+                aria-label={`${d.day}: AQI ${d.aqi}, PM2.5 ${d.pm25} µg/m³`}
               >
                 <span className="day-name">{d.day}</span>
                 <span className="day-aqi">{d.aqi}</span>
-                <span className="day-range">{d.lo}–{d.hi} µg</span>
+                <span className="day-pm25">{d.pm25} µg/m³</span>
                 <div
                   className="day-dot"
                   style={{ background: aqiColor(d.aqi) }}
