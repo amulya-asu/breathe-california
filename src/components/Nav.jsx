@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 const PAGES = [
   { key: 'forecast', label: 'Forecast' },
   { key: 'map', label: 'Map' },
+  { key: 'assistant', label: 'Assistant' },
   { key: 'methodology', label: 'Methodology' },
   { key: 'about', label: 'About' },
 ];

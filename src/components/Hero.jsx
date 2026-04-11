@@ -1,15 +1,38 @@
 import { useEffect, useRef, useState } from 'react';
+
 export default function Hero({ county, setCounty, forecast, countyList, loading }) {
   const [mounted, setMounted] = useState(false);
+  const [search, setSearch] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
   const dotRef = useRef(null);
+  const searchRef = useRef(null);
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 30);
     return () => clearTimeout(t);
   }, []);
 
-  function switchCounty(name) {
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClick(e) {
+      if (searchRef.current && !searchRef.current.contains(e.target) &&
+          dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const filtered = countyList.filter((c) =>
+    c.county.toLowerCase().includes(search.toLowerCase())
+  );
+
+  function selectCounty(name) {
     setCounty(name);
+    setSearch('');
+    setShowDropdown(false);
   }
 
   const aqi = forecast ? forecast.aqi : 0;
@@ -35,18 +58,14 @@ export default function Hero({ county, setCounty, forecast, countyList, loading 
           border-radius: 20px;
           padding: 32px 36px;
         }
-        .hero-row-1,
-        .hero-row-2,
-        .hero-row-3,
-        .hero-row-4 {
+        .hero-row-1, .hero-row-2, .hero-row-3 {
           opacity: 0;
           transform: translateY(14px);
           transition: opacity 0.55s ease, transform 0.55s ease;
         }
-        .hero-mounted .hero-row-1 { opacity: 1; transform: none; transition-delay: 0ms;   }
+        .hero-mounted .hero-row-1 { opacity: 1; transform: none; transition-delay: 0ms; }
         .hero-mounted .hero-row-2 { opacity: 1; transform: none; transition-delay: 150ms; }
         .hero-mounted .hero-row-3 { opacity: 1; transform: none; transition-delay: 300ms; }
-        .hero-mounted .hero-row-4 { opacity: 1; transform: none; transition-delay: 450ms; }
         .hero-top {
           display: flex;
           align-items: center;
@@ -62,29 +81,95 @@ export default function Hero({ county, setCounty, forecast, countyList, loading 
           color: #ffffff;
           line-height: 1;
         }
-        .county-select {
+
+        /* Search input */
+        .county-search-wrap {
+          position: relative;
+          min-width: 200px;
+        }
+        .county-search-input {
           font-family: 'Nunito', sans-serif;
           font-weight: 400;
           font-size: 13px;
           color: #ffffff;
-          background: rgba(255,255,255,0.10);
-          border: 1px solid rgba(255,255,255,0.18);
+          background: rgba(255,255,255,0.08);
+          border: 1px solid rgba(255,255,255,0.15);
           border-radius: 24px;
-          padding: 8px 16px;
-          cursor: pointer;
-          appearance: none;
-          -webkit-appearance: none;
+          padding: 9px 16px 9px 36px;
+          width: 100%;
           outline: none;
-          min-width: 160px;
+          transition: border-color 0.2s, background 0.2s;
         }
-        .county-select:focus-visible {
-          outline: 2px solid rgba(255,255,255,0.5);
-          outline-offset: 2px;
+        .county-search-input::placeholder {
+          color: rgba(255,255,255,0.35);
         }
-        .county-select option {
-          background: #1a1000;
-          color: #fff;
+        .county-search-input:focus {
+          border-color: rgba(255,255,255,0.35);
+          background: rgba(255,255,255,0.12);
         }
+        .search-icon {
+          position: absolute;
+          left: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: rgba(255,255,255,0.35);
+          pointer-events: none;
+        }
+
+        /* Dropdown */
+        .county-dropdown {
+          position: absolute;
+          top: calc(100% + 6px);
+          left: 0;
+          right: 0;
+          background: rgba(18,22,18,0.96);
+          backdrop-filter: blur(20px);
+          border: 1px solid rgba(255,255,255,0.13);
+          border-radius: 14px;
+          max-height: 240px;
+          overflow-y: auto;
+          z-index: 50;
+          padding: 6px;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255,255,255,0.12) transparent;
+        }
+        .county-dropdown::-webkit-scrollbar { width: 4px; }
+        .county-dropdown::-webkit-scrollbar-track { background: transparent; }
+        .county-dropdown::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+        .county-option {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 9px 12px;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: background 0.15s;
+          font-family: 'Nunito', sans-serif;
+          font-size: 13px;
+          color: rgba(255,255,255,0.75);
+        }
+        .county-option:hover {
+          background: rgba(255,255,255,0.10);
+          color: #ffffff;
+        }
+        .county-option.active {
+          background: rgba(255,255,255,0.14);
+          color: #ffffff;
+          font-weight: 500;
+        }
+        .county-option-aqi {
+          font-size: 11px;
+          color: rgba(255,255,255,0.4);
+          font-weight: 400;
+        }
+        .county-no-results {
+          padding: 12px;
+          font-family: 'Nunito', sans-serif;
+          font-size: 13px;
+          color: rgba(255,255,255,0.35);
+          text-align: center;
+        }
+
         .hero-aqi-row {
           display: flex;
           align-items: flex-end;
@@ -135,9 +220,14 @@ export default function Hero({ county, setCounty, forecast, countyList, loading 
           line-height: 1.6;
           margin-top: 4px;
         }
-        .scale-wrap {
-          margin: 20px 0 28px;
+        .hero-stations {
+          font-family: 'Nunito', sans-serif;
+          font-weight: 400;
+          font-size: 12px;
+          color: rgba(255,255,255,0.28);
+          margin-top: 4px;
         }
+        .scale-wrap { margin: 20px 0 28px; }
         .scale-bar-outer {
           position: relative;
           height: 6px;
@@ -168,13 +258,6 @@ export default function Hero({ county, setCounty, forecast, countyList, loading 
           color: rgba(255,255,255,0.35);
           text-transform: uppercase;
         }
-        .hero-stations {
-          font-family: 'Nunito', sans-serif;
-          font-weight: 400;
-          font-size: 12px;
-          color: rgba(255,255,255,0.28);
-          margin-top: 4px;
-        }
         @media (max-width: 768px) {
           .hero-card { padding: 24px 20px; }
           .hero-aqi-row { flex-direction: column; align-items: flex-start; gap: 12px; }
@@ -184,10 +267,8 @@ export default function Hero({ county, setCounty, forecast, countyList, loading 
           .hero-county-name { font-size: 30px; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .hero-row-1, .hero-row-2, .hero-row-3, .hero-row-4 {
-            opacity: 1 !important;
-            transform: none !important;
-            transition: none !important;
+          .hero-row-1, .hero-row-2, .hero-row-3 {
+            opacity: 1 !important; transform: none !important; transition: none !important;
           }
           .scale-dot { transition: none !important; }
         }
@@ -199,16 +280,42 @@ export default function Hero({ county, setCounty, forecast, countyList, loading 
           <div className="hero-row-1">
             <div className="hero-top">
               <h1 className="hero-county-name">{county}</h1>
-              <select
-                className="county-select"
-                value={county}
-                onChange={(e) => switchCounty(e.target.value)}
-                aria-label="Select county"
-              >
-                {countyList.map((c) => (
-                  <option key={c.county} value={c.county}>{c.county}</option>
-                ))}
-              </select>
+              <div className="county-search-wrap">
+                <span className="search-icon">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" strokeWidth="1.5"/>
+                    <line x1="10.5" y1="10.5" x2="15" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                </span>
+                <input
+                  ref={searchRef}
+                  className="county-search-input"
+                  type="text"
+                  placeholder="Search county..."
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); setShowDropdown(true); }}
+                  onFocus={() => setShowDropdown(true)}
+                  aria-label="Search county"
+                />
+                {showDropdown && (
+                  <div className="county-dropdown" ref={dropdownRef}>
+                    {filtered.length === 0 ? (
+                      <div className="county-no-results">No counties found</div>
+                    ) : (
+                      filtered.map((c) => (
+                        <div
+                          key={c.county}
+                          className={`county-option${c.county === county ? ' active' : ''}`}
+                          onClick={() => selectCounty(c.county)}
+                        >
+                          <span>{c.county}</span>
+                          <span className="county-option-aqi">AQI {c.aqi}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -219,17 +326,11 @@ export default function Hero({ county, setCounty, forecast, countyList, loading 
               </div>
               <div className="hero-aqi-meta">
                 <span className="status-badge">{status}</span>
-                <p className="hero-pm-line">
-                  PM2.5 now <strong>{pm} µg/m³</strong>
-                </p>
-                <p className="hero-pm-line">
-                  Tomorrow forecast <strong>{tmr} µg/m³</strong>
-                </p>
+                <p className="hero-pm-line">PM2.5 now <strong>{pm} µg/m³</strong></p>
+                <p className="hero-pm-line">Tomorrow forecast <strong>{tmr} µg/m³</strong></p>
                 <p className="hero-desc">{desc}</p>
                 {forecast && (
-                  <p className="hero-stations">
-                    {forecast.n_stations} monitoring stations
-                  </p>
+                  <p className="hero-stations">{forecast.n_stations} monitoring stations</p>
                 )}
               </div>
             </div>
@@ -238,11 +339,7 @@ export default function Hero({ county, setCounty, forecast, countyList, loading 
           <div className="hero-row-3">
             <div className="scale-wrap">
               <div className="scale-bar-outer" role="img" aria-label={`AQI scale, current value ${aqi}`}>
-                <div
-                  ref={dotRef}
-                  className="scale-dot"
-                  style={{ left: `${dotPct}%` }}
-                />
+                <div ref={dotRef} className="scale-dot" style={{ left: `${dotPct}%` }} />
               </div>
               <div className="scale-labels" aria-hidden="true">
                 <span className="scale-label">Good</span>

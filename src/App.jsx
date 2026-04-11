@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Background from './components/Background';
 import Nav from './components/Nav';
 import Hero from './components/Hero';
 import HourlyStrip from './components/HourlyStrip';
 import WeeklyGrid from './components/WeeklyGrid';
-import ChatBar from './components/ChatBar';
+import ChatPage from './components/ChatPage';
 import MapView from './components/MapView';
 import Methodology from './components/Methodology';
 import About from './components/About';
@@ -21,6 +21,7 @@ export default function App() {
   const [forecast, setForecast] = useState(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState('forecast');
+  const topRef = useRef(null);
 
   useEffect(() => {
     fetchCounties()
@@ -46,13 +47,18 @@ export default function App() {
       });
   }, [county]);
 
+  // Scroll to top when page changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [page]);
+
   function handleMapSelect(countyName) {
     setCounty(countyName);
     setPage('forecast');
   }
 
   return (
-    <div style={{ position: 'relative', minHeight: '100%' }}>
+    <div ref={topRef} style={{ position: 'relative', minHeight: '100%' }}>
       <Background theme={theme} />
       <div style={{ position: 'relative', zIndex: 1 }}>
         <Nav activePage={page} setPage={setPage} />
@@ -68,12 +74,15 @@ export default function App() {
             />
             <HourlyStrip county={county} forecast={forecast} />
             <WeeklyGrid forecast={forecast} />
-            <ChatBar county={county} />
           </>
         )}
 
         {page === 'map' && (
           <MapView onSelectCounty={handleMapSelect} />
+        )}
+
+        {page === 'assistant' && (
+          <ChatPage countyList={countyList} />
         )}
 
         {page === 'methodology' && (
