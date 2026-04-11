@@ -1,11 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 
-const LINKS = ['Forecast', 'Map', 'Methodology', 'About'];
+const PAGES = [
+  { key: 'forecast', label: 'Forecast' },
+  { key: 'map', label: 'Map' },
+  { key: 'methodology', label: 'Methodology' },
+  { key: 'about', label: 'About' },
+];
 
-export default function Nav({ activeLink = 'Forecast' }) {
+export default function Nav({ activePage = 'forecast', setPage }) {
   const [open, setOpen] = useState(false);
 
-  // Close overlay on Escape
   const onKeyDown = useCallback((e) => {
     if (e.key === 'Escape') setOpen(false);
   }, []);
@@ -23,6 +27,11 @@ export default function Nav({ activeLink = 'Forecast' }) {
     };
   }, [open, onKeyDown]);
 
+  function navigate(pageKey) {
+    if (setPage) setPage(pageKey);
+    setOpen(false);
+  }
+
   return (
     <>
       <style>{`
@@ -39,36 +48,37 @@ export default function Nav({ activeLink = 'Forecast' }) {
           outline: 2px solid rgba(255,255,255,0.6);
           outline-offset: 3px;
         }
-        .nav-link:hover { color: rgba(255,255,255,0.85) !important; }
-        .overlay-link:hover { color: #fff !important; }
+        .nav-link:hover { color: rgba(255,255,255,0.85) !important; cursor: pointer; }
+        .overlay-link:hover { color: #fff !important; cursor: pointer; }
         .nav-hamburger-btn:hover,
         .nav-close:hover { color: #fff !important; }
       `}</style>
       <nav style={styles.nav}>
         <div style={styles.inner}>
-          {/* Logo */}
-          <a href="#" style={styles.logo} aria-label="CA AQI Forecast home">
+          <a
+            style={styles.logo}
+            aria-label="CA AQI Forecast home"
+            onClick={() => navigate('forecast')}
+          >
             CA AQI{' '}
             <span style={styles.logoLight}>Forecast</span>
           </a>
 
-          {/* Desktop links */}
           <ul style={styles.linkList} className="nav-links" role="list">
-            {LINKS.map((link) => (
-              <li key={link}>
+            {PAGES.map(({ key, label }) => (
+              <li key={key}>
                 <a
-                  href="#"
                   className="nav-link"
-                  style={link === activeLink ? styles.linkActive : styles.link}
-                  aria-current={link === activeLink ? 'page' : undefined}
+                  style={key === activePage ? styles.linkActive : styles.link}
+                  aria-current={key === activePage ? 'page' : undefined}
+                  onClick={() => navigate(key)}
                 >
-                  {link}
+                  {label}
                 </a>
               </li>
             ))}
           </ul>
 
-          {/* Hamburger — mobile only */}
           <div className="nav-hamburger">
             <button
               className="nav-hamburger-btn"
@@ -83,7 +93,6 @@ export default function Nav({ activeLink = 'Forecast' }) {
         </div>
       </nav>
 
-      {/* Mobile overlay */}
       {open && (
         <div style={styles.overlay} role="dialog" aria-modal="true" aria-label="Navigation menu">
           <button
@@ -95,16 +104,15 @@ export default function Nav({ activeLink = 'Forecast' }) {
             <CloseIcon />
           </button>
           <ul style={styles.overlayList} role="list">
-            {LINKS.map((link) => (
-              <li key={link}>
+            {PAGES.map(({ key, label }) => (
+              <li key={key}>
                 <a
-                  href="#"
-                  style={link === activeLink ? styles.overlayLinkActive : styles.overlayLink}
-                  aria-current={link === activeLink ? 'page' : undefined}
+                  style={key === activePage ? styles.overlayLinkActive : styles.overlayLink}
+                  aria-current={key === activePage ? 'page' : undefined}
                   className="overlay-link"
-                  onClick={() => setOpen(false)}
+                  onClick={() => navigate(key)}
                 >
-                  {link}
+                  {label}
                 </a>
               </li>
             ))}
@@ -162,6 +170,7 @@ const styles = {
     textDecoration: 'none',
     letterSpacing: '0.2px',
     flexShrink: 0,
+    cursor: 'pointer',
   },
   logoLight: {
     fontWeight: 300,
@@ -173,7 +182,6 @@ const styles = {
     listStyle: 'none',
     margin: 0,
     padding: 0,
-    // hidden on mobile via CSS media query — handled with className approach below
   },
   link: {
     fontFamily: "'Nunito', sans-serif",
@@ -245,6 +253,7 @@ const styles = {
     color: 'rgba(255,255,255,0.55)',
     textDecoration: 'none',
     letterSpacing: '0.5px',
+    cursor: 'pointer',
   },
   overlayLinkActive: {
     fontFamily: "'Nunito', sans-serif",
@@ -253,5 +262,6 @@ const styles = {
     color: '#ffffff',
     textDecoration: 'none',
     letterSpacing: '0.5px',
+    cursor: 'pointer',
   },
 };

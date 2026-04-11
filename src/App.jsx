@@ -5,6 +5,9 @@ import Hero from './components/Hero';
 import HourlyStrip from './components/HourlyStrip';
 import WeeklyGrid from './components/WeeklyGrid';
 import ChatBar from './components/ChatBar';
+import MapView from './components/MapView';
+import Methodology from './components/Methodology';
+import About from './components/About';
 import Footer from './components/Footer';
 import { aqiTheme } from './utils/aqi';
 import { fetchCounties, fetchForecast } from './api';
@@ -17,8 +20,8 @@ export default function App() {
   const [countyList, setCountyList] = useState([]);
   const [forecast, setForecast] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState('forecast');
 
-  // Load county list on mount
   useEffect(() => {
     fetchCounties()
       .then((data) => {
@@ -29,7 +32,6 @@ export default function App() {
       });
   }, []);
 
-  // Load forecast when county changes
   useEffect(() => {
     setLoading(true);
     fetchForecast(county)
@@ -44,21 +46,44 @@ export default function App() {
       });
   }, [county]);
 
+  function handleMapSelect(countyName) {
+    setCounty(countyName);
+    setPage('forecast');
+  }
+
   return (
     <div style={{ position: 'relative', minHeight: '100%' }}>
       <Background theme={theme} />
       <div style={{ position: 'relative', zIndex: 1 }}>
-        <Nav />
-        <Hero
-          county={county}
-          setCounty={setCounty}
-          forecast={forecast}
-          countyList={countyList}
-          loading={loading}
-        />
-        <HourlyStrip county={county} forecast={forecast} />
-        <WeeklyGrid forecast={forecast} />
-        <ChatBar county={county} />
+        <Nav activePage={page} setPage={setPage} />
+
+        {page === 'forecast' && (
+          <>
+            <Hero
+              county={county}
+              setCounty={setCounty}
+              forecast={forecast}
+              countyList={countyList}
+              loading={loading}
+            />
+            <HourlyStrip county={county} forecast={forecast} />
+            <WeeklyGrid forecast={forecast} />
+            <ChatBar county={county} />
+          </>
+        )}
+
+        {page === 'map' && (
+          <MapView onSelectCounty={handleMapSelect} />
+        )}
+
+        {page === 'methodology' && (
+          <Methodology />
+        )}
+
+        {page === 'about' && (
+          <About />
+        )}
+
         <Footer />
       </div>
     </div>
