@@ -378,15 +378,16 @@ def compute_features(df):
     psw = pw.shift(1)
 
     for feat, win in [("neighbor_pm25_max_6h",6),("neighbor_pm25_mean_6h",6),("neighbor_pm25_max_24h",24)]:
-        fd = pd.DataFrame(index=pw.index)
+        cols = {}
         for si in range(len(sc)):
             nc = [c for c in neighbor_map.get(si, []) if c in psw.columns]
             if not nc: continue
             nd = psw[nc]
             if "max" in feat:
-                fd[si] = nd.max(axis=1).rolling(win, min_periods=1).max()
+                cols[si] = nd.max(axis=1).rolling(win, min_periods=1).max()
             else:
-                fd[si] = nd.mean(axis=1).rolling(win, min_periods=1).mean()
+                cols[si] = nd.mean(axis=1).rolling(win, min_periods=1).mean()
+        fd = pd.concat(cols, axis=1) if cols else pd.DataFrame(index=pw.index)
         fl = fd.stack().reset_index()
         fl.columns = ["datetime_hour", "_si", feat]
         fl["_si"] = fl["_si"].astype(int)
