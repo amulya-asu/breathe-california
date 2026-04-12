@@ -79,7 +79,7 @@ def main():
     # ── Download stations.csv ──
     print("Downloading stations.csv...")
     download_blob(container.get_blob_client("stations.csv"), "stations.csv")
-    stations = pd.read_csv("stations.csv")
+    stations = pd.read_csv("stations.csv", dtype={"county_fips": str})
     print(f"  {len(stations)} stations loaded")
 
     # ── Download models ──
@@ -128,6 +128,7 @@ def main():
                 "datetime_hour", "pm25", "temp_c", "dewpoint_c",
                 "pressure_hpa", "wind_dir_deg", "wind_speed_mps", "precip_1hr_mm"]
     df_save = df[raw_cols].copy()
+    df_save["county_fips"] = df_save["county_fips"].astype(str)
     cutoff = now - timedelta(days=10)
     df_save = df_save[df_save["datetime_hour"] >= cutoff]
     df_save.to_parquet("local_history.parquet", index=False)
