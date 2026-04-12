@@ -120,9 +120,9 @@ def _aggregate_county(predictions: list, county_name: str) -> dict:
     aqi = _pm25_to_aqi(avg_pm25)
     status, theme = _aqi_status(aqi)
 
-    # Average hourly forecasts
-    hourly = []
-    for h in range(24):
+    # Average hourly forecasts — first entry is actual current PM2.5
+    hourly = [round(avg_pm25, 1)]
+    for h in range(1, 24):
         vals = []
         for s in stations:
             if h < len(s["hourly_forecast"]):
