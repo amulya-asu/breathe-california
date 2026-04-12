@@ -1,0 +1,32 @@
+name: Hourly ETL Pipeline
+
+on:
+  schedule:
+    # Run every hour at :05 past (gives AirNow 5 min buffer)
+    - cron: '5 * * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r etl/requirements.txt
+
+      - name: Run ETL pipeline
+        env:
+          AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
+          AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
+          AZURE_BLOB_CONTAINER: ${{ secrets.AZURE_BLOB_CONTAINER }}
+          AIRNOW_API_KEY: ${{ secrets.AIRNOW_API_KEY }}
+        run: python etl/run_pipeline.py
