@@ -241,6 +241,11 @@ def bootstrap_history(stations, now):
             data = r.json()
             if data:
                 df_an = pd.DataFrame(data)
+                # Filter out invalid readings (-999, negatives)
+                if "RawConcentration" in df_an.columns:
+                    df_an = df_an[df_an["RawConcentration"] >= 0].copy()
+                elif "Value" in df_an.columns:
+                    df_an = df_an[df_an["Value"] >= 0].copy()
                 for _, station in stations.iterrows():
                     best_dist, best_pm25, best_time = float("inf"), None, None
                     for _, mon in df_an.iterrows():
@@ -283,6 +288,12 @@ def fetch_live(stations, now):
         df_airnow = pd.DataFrame(r.json())
     except Exception:
         return pd.DataFrame()
+
+    # Filter out invalid readings before matching
+    if "RawConcentration" in df_airnow.columns:
+        df_airnow = df_airnow[df_airnow["RawConcentration"] >= 0].copy()
+    elif "Value" in df_airnow.columns:
+        df_airnow = df_airnow[df_airnow["Value"] >= 0].copy()
 
     records = []
     for _, station in stations.iterrows():
