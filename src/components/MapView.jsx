@@ -120,11 +120,12 @@ export default function MapView({ stationList, onSelectStation }) {
                       weight={1}
                     >
                       <Tooltip direction="top" offset={[0, -8]}>
-                        {m.county} — AQI {m.aqi}
+                        {m.name || m.county} — AQI {m.aqi}
                       </Tooltip>
                       <Popup>
                         <div>
-                          <div className="popup-county">{m.county}</div>
+                          <div className="popup-county">{m.name || m.county}</div>
+                          <div style={{fontSize:'11px',color:'rgba(255,255,255,0.4)',marginBottom:'4px'}}>{m.county} County</div>
                           <div className="popup-aqi" style={{ color: aqiColor(m.aqi) }}>{m.aqi}</div>
                           <div className="popup-status">{m.status}</div>
                           <div className="popup-pm25">PM2.5: {m.pm25} µg/m³</div>

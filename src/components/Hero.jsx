@@ -25,19 +25,12 @@ export default function Hero({ county, stationId, forecast, stationList, onSelec
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  // Build searchable list: individual stations grouped by county
-  const filtered = stationList.filter((s) =>
-    s.county.toLowerCase().includes(search.toLowerCase())
-  );
-
-  // Deduplicate to county level for search dropdown
-  const countyMap = {};
-  for (const s of filtered) {
-    if (!countyMap[s.county] || s.aqi > countyMap[s.county].aqi) {
-      countyMap[s.county] = s;
-    }
-  }
-  const filteredCounties = Object.values(countyMap).sort((a, b) => a.county.localeCompare(b.county));
+  // Search across station names and county names
+  const searchLower = search.toLowerCase();
+  const filteredStations = stationList.filter((s) =>
+    (s.name || s.county).toLowerCase().includes(searchLower) ||
+    s.county.toLowerCase().includes(searchLower)
+  ).sort((a, b) => (a.name || a.county).localeCompare(b.name || b.county));
 
   function selectItem(station) {
     onSelect({ station_id: station.station_id, county: station.county });
@@ -45,6 +38,7 @@ export default function Hero({ county, stationId, forecast, stationList, onSelec
     setShowDropdown(false);
   }
 
+  const displayName = forecast ? (forecast.name || forecast.county || county) : county;
   const aqi = forecast ? forecast.aqi : 0;
   const pm = forecast ? forecast.pm25 : 0;
   const tmr = forecast ? forecast.tmr : 0;
@@ -289,7 +283,7 @@ export default function Hero({ county, stationId, forecast, stationList, onSelec
 
           <div className="hero-row-1">
             <div className="hero-top">
-              <h1 className="hero-county-name">{county}</h1>
+              <h1 className="hero-county-name">{displayName}</h1>
               <div className="county-search-wrap">
                 <span className="search-icon">
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -309,16 +303,16 @@ export default function Hero({ county, stationId, forecast, stationList, onSelec
                 />
                 {showDropdown && (
                   <div className="county-dropdown" ref={dropdownRef}>
-                    {filteredCounties.length === 0 ? (
+                    {filteredStations.length === 0 ? (
                       <div className="county-no-results">No locations found</div>
                     ) : (
-                      filteredCounties.map((s) => (
+                      filteredStations.slice(0, 30).map((s) => (
                         <div
                           key={s.station_id}
-                          className={`county-option${s.county === county ? ' active' : ''}`}
+                          className={`county-option${s.station_id === stationId ? ' active' : ''}`}
                           onClick={() => selectItem(s)}
                         >
-                          <span>{s.county}</span>
+                          <span>{s.name || s.county} <span style={{fontSize:'11px',opacity:0.5}}>{s.county}</span></span>
                           <span className="county-option-aqi">AQI {s.aqi}</span>
                         </div>
                       ))

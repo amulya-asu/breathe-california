@@ -152,8 +152,11 @@ def _build_station_response(p: dict) -> dict:
     else:
         freshness = "stale"
 
+    place = p.get("place_name", p["county"])
+
     return {
         "station_id": _station_id(p),
+        "name": place,
         "county": p["county"],
         "county_fips": p["county_fips"],
         "latitude": p["latitude"],
@@ -164,7 +167,7 @@ def _build_station_response(p: dict) -> dict:
         "status": status,
         "theme": theme,
         "freshness": freshness,
-        "desc": f"Current PM2.5 is {pm25:.1f} \u00b5g/m\u00b3.",
+        "desc": f"Current PM2.5 is {pm25:.1f} \u00b5g/m\u00b3 in {place}.",
         "hourly": hourly,
         "weekly": daily,
         "updated_at": updated_at,
@@ -206,6 +209,7 @@ async def list_stations():
 
         stations.append({
             "station_id": _station_id(p),
+            "name": p.get("place_name", p["county"]),
             "county": p["county"],
             "latitude": p["latitude"],
             "longitude": p["longitude"],

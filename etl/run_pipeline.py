@@ -171,6 +171,7 @@ def main():
         all_predictions.append({
             "county_fips": row["county_fips"],
             "county": row["county"],
+            "place_name": row.get("place_name", row["county"]),
             "latitude": float(row["latitude"]),
             "longitude": float(row["longitude"]),
             "current_pm25": float(row["pm25"]),
