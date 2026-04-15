@@ -57,7 +57,7 @@ const CITY_TO_COUNTY = {
   'joshua tree': 'San Bernardino', 'big bear': 'San Bernardino',
 };
 
-function detectCounty(message, countyList) {
+function detectCounty(message, stationList) {
   const lower = message.toLowerCase();
 
   // Check city/place mapping first
@@ -65,17 +65,18 @@ function detectCounty(message, countyList) {
     if (lower.includes(city)) return county;
   }
 
-  // Check direct county names
-  if (countyList) {
-    for (const c of countyList) {
-      if (lower.includes(c.county.toLowerCase())) return c.county;
+  // Check direct county names from station list
+  if (stationList) {
+    const counties = [...new Set(stationList.map(s => s.county))];
+    for (const county of counties) {
+      if (lower.includes(county.toLowerCase())) return county;
     }
   }
 
   return null;
 }
 
-export default function ChatPage({ countyList }) {
+export default function ChatPage({ stationList, county, stationId }) {
   const [messages, setMessages] = useState([
     { role: 'bot', text: WELCOME },
   ]);
@@ -96,14 +97,14 @@ export default function ChatPage({ countyList }) {
     setMessages((prev) => [...prev, { role: 'user', text }]);
     setLoading(true);
 
-    // Detect county from message
-    const detectedCounty = detectCounty(text, countyList) || 'Fresno';
+    // Detect county from message, fall back to current county or Fresno
+    const detectedCounty = detectCounty(text, stationList) || county || 'Fresno';
 
     try {
       const res = await fetch(`${API_BASE}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, county: detectedCounty }),
+        body: JSON.stringify({ message: text, county: detectedCounty, station_id: stationId || '' }),
       });
       if (!res.ok) throw new Error('Failed');
       const data = await res.json();

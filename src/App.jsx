@@ -10,51 +10,83 @@ import Methodology from './components/Methodology';
 import About from './components/About';
 import Footer from './components/Footer';
 import { aqiTheme } from './utils/aqi';
-import { fetchCounties, fetchForecast } from './api';
+import { fetchStations, fetchStationForecast, fetchForecast } from './api';
 
 const DEFAULT_COUNTY = 'Fresno';
 
 export default function App() {
   const [county, setCounty] = useState(DEFAULT_COUNTY);
+  const [stationId, setStationId] = useState(null);
   const [theme, setTheme] = useState('good');
-  const [countyList, setCountyList] = useState([]);
+  const [stationList, setStationList] = useState([]);
   const [forecast, setForecast] = useState(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState('forecast');
   const topRef = useRef(null);
 
+  // Load all stations on mount
   useEffect(() => {
-    fetchCounties()
+    fetchStations()
       .then((data) => {
-        setCountyList(data.counties || []);
+        setStationList(data.stations || []);
+        // Auto-select first Fresno station
+        const defaultStation = (data.stations || []).find(s => s.county === DEFAULT_COUNTY);
+        if (defaultStation) {
+          setStationId(defaultStation.station_id);
+        }
       })
       .catch(() => {
-        setCountyList([{ county: DEFAULT_COUNTY, aqi: 0, status: 'Loading...' }]);
+        setStationList([]);
       });
   }, []);
 
+  // Load forecast when station or county changes
   useEffect(() => {
     setLoading(true);
-    fetchForecast(county)
-      .then((data) => {
-        setForecast(data);
-        setTheme(aqiTheme(data.aqi));
-        setLoading(false);
-      })
-      .catch(() => {
-        setForecast(null);
-        setLoading(false);
-      });
-  }, [county]);
+    if (stationId) {
+      fetchStationForecast(stationId)
+        .then((data) => {
+          setForecast(data);
+          setCounty(data.county);
+          setTheme(aqiTheme(data.aqi));
+          setLoading(false);
+        })
+        .catch(() => {
+          setForecast(null);
+          setLoading(false);
+        });
+    } else if (county) {
+      fetchForecast(county)
+        .then((data) => {
+          setForecast(data);
+          setTheme(aqiTheme(data.aqi));
+          setLoading(false);
+        })
+        .catch(() => {
+          setForecast(null);
+          setLoading(false);
+        });
+    }
+  }, [stationId, county]);
 
-  // Scroll to top when page changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [page]);
 
-  function handleMapSelect(countyName) {
-    setCounty(countyName);
+  function handleMapSelect(selectedStationId, selectedCounty) {
+    setStationId(selectedStationId);
+    setCounty(selectedCounty);
     setPage('forecast');
+  }
+
+  function handleSearchSelect(item) {
+    if (item.station_id) {
+      setStationId(item.station_id);
+      setCounty(item.county);
+    } else {
+      setStationId(null);
+      setCounty(item.county);
+    }
   }
 
   return (
@@ -67,22 +99,23 @@ export default function App() {
           <>
             <Hero
               county={county}
-              setCounty={setCounty}
+              stationId={stationId}
               forecast={forecast}
-              countyList={countyList}
+              stationList={stationList}
+              onSelect={handleSearchSelect}
               loading={loading}
             />
-            <HourlyStrip county={county} forecast={forecast} />
+            <HourlyStrip forecast={forecast} />
             <WeeklyGrid forecast={forecast} />
           </>
         )}
 
         {page === 'map' && (
-          <MapView onSelectCounty={handleMapSelect} />
+          <MapView stationList={stationList} onSelectStation={handleMapSelect} />
         )}
 
         {page === 'assistant' && (
-          <ChatPage countyList={countyList} />
+          <ChatPage stationList={stationList} county={county} stationId={stationId} />
         )}
 
         {page === 'methodology' && (

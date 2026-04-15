@@ -200,7 +200,7 @@ export default function About() {
           <p className="about-subtitle">
             Breathe California is an end-to-end air quality forecasting and decision support system
             built as a capstone project at Arizona State University. It predicts PM2.5 concentrations
-            for 43 California counties using machine learning, and presents the results through an
+            across 117 California monitoring stations using machine learning, and presents the results through an
             interactive web dashboard with AI-powered health guidance.
           </p>
 

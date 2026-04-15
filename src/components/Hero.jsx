@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-export default function Hero({ county, setCounty, forecast, countyList, loading }) {
+export default function Hero({ county, stationId, forecast, stationList, onSelect, loading }) {
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -25,12 +25,22 @@ export default function Hero({ county, setCounty, forecast, countyList, loading 
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const filtered = countyList.filter((c) =>
-    c.county.toLowerCase().includes(search.toLowerCase())
+  // Build searchable list: individual stations grouped by county
+  const filtered = stationList.filter((s) =>
+    s.county.toLowerCase().includes(search.toLowerCase())
   );
 
-  function selectCounty(name) {
-    setCounty(name);
+  // Deduplicate to county level for search dropdown
+  const countyMap = {};
+  for (const s of filtered) {
+    if (!countyMap[s.county] || s.aqi > countyMap[s.county].aqi) {
+      countyMap[s.county] = s;
+    }
+  }
+  const filteredCounties = Object.values(countyMap).sort((a, b) => a.county.localeCompare(b.county));
+
+  function selectItem(station) {
+    onSelect({ station_id: station.station_id, county: station.county });
     setSearch('');
     setShowDropdown(false);
   }
@@ -291,25 +301,25 @@ export default function Hero({ county, setCounty, forecast, countyList, loading 
                   ref={searchRef}
                   className="county-search-input"
                   type="text"
-                  placeholder="Search county..."
+                  placeholder="Search location..."
                   value={search}
                   onChange={(e) => { setSearch(e.target.value); setShowDropdown(true); }}
                   onFocus={() => setShowDropdown(true)}
-                  aria-label="Search county"
+                  aria-label="Search location"
                 />
                 {showDropdown && (
                   <div className="county-dropdown" ref={dropdownRef}>
-                    {filtered.length === 0 ? (
-                      <div className="county-no-results">No counties found</div>
+                    {filteredCounties.length === 0 ? (
+                      <div className="county-no-results">No locations found</div>
                     ) : (
-                      filtered.map((c) => (
+                      filteredCounties.map((s) => (
                         <div
-                          key={c.county}
-                          className={`county-option${c.county === county ? ' active' : ''}`}
-                          onClick={() => selectCounty(c.county)}
+                          key={s.station_id}
+                          className={`county-option${s.county === county ? ' active' : ''}`}
+                          onClick={() => selectItem(s)}
                         >
-                          <span>{c.county}</span>
-                          <span className="county-option-aqi">AQI {c.aqi}</span>
+                          <span>{s.county}</span>
+                          <span className="county-option-aqi">AQI {s.aqi}</span>
                         </div>
                       ))
                     )}
@@ -329,7 +339,18 @@ export default function Hero({ county, setCounty, forecast, countyList, loading 
                 <p className="hero-pm-line">PM2.5 now <strong>{pm} µg/m³</strong></p>
                 <p className="hero-pm-line">Tomorrow forecast <strong>{tmr} µg/m³</strong></p>
                 <p className="hero-desc">{desc}</p>
-                {forecast && (
+                {forecast && forecast.freshness && (
+                  <p className="hero-stations" style={{
+                    color: forecast.freshness === 'live' ? 'rgba(100,220,100,0.6)' :
+                           forecast.freshness === 'recent' ? 'rgba(253,181,21,0.5)' :
+                           'rgba(255,100,100,0.5)'
+                  }}>
+                    {forecast.freshness === 'live' ? '● Live' :
+                     forecast.freshness === 'recent' ? '● Updated recently' :
+                     '● Data may be stale'}
+                  </p>
+                )}
+                {forecast && forecast.n_stations && (
                   <p className="hero-stations">{forecast.n_stations} monitoring stations</p>
                 )}
               </div>

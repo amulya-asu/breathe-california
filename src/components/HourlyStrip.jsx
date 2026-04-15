@@ -20,7 +20,7 @@ function pmToAqi(pm) {
   return Math.round(201 + ((pm - 150.4) / 99.6) * 99);
 }
 
-export default function HourlyStrip({ county, forecast }) {
+export default function HourlyStrip({ forecast }) {
   const [tab, setTab] = useState('24h');
 
   const hours = forecast?.hourly ?? [];

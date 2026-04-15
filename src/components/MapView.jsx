@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, useMap } from 'react-leaflet';
-import { fetchCounties } from '../api';
 import { aqiColor } from '../utils/aqi';
 import 'leaflet/dist/leaflet.css';
 
@@ -25,72 +24,19 @@ function FlyTo({ center, zoom }) {
   return null;
 }
 
-const COUNTY_COORDS = {
-  'Alameda': [37.65, -121.90], 'Butte': [39.67, -121.60],
-  'Calaveras': [38.20, -120.68], 'Colusa': [39.10, -122.00],
-  'Contra Costa': [37.95, -122.02], 'Fresno': [36.75, -119.77],
-  'Humboldt': [40.88, -123.98], 'Imperial': [32.84, -115.57],
-  'Inyo': [36.97, -118.11], 'Kern': [35.35, -118.70],
-  'Kings': [36.21, -119.60], 'Los Angeles': [34.05, -118.24],
-  'Madera': [36.96, -120.03], 'Marin': [38.05, -122.75],
-  'Mendocino': [39.27, -123.28], 'Merced': [37.30, -120.48],
-  'Mono': [37.96, -119.12], 'Monterey': [36.44, -121.49],
-  'Nevada': [39.28, -120.62], 'Orange': [33.74, -117.87],
-  'Placer': [38.84, -121.18], 'Plumas': [39.88, -120.71],
-  'Riverside': [33.88, -117.22], 'Sacramento': [38.58, -121.49],
-  'San Benito': [36.84, -121.36], 'San Bernardino': [34.27, -117.29],
-  'San Diego': [32.88, -117.07], 'San Francisco': [37.77, -122.42],
-  'San Joaquin': [37.88, -121.26], 'San Luis': [35.26, -120.64],
-  'San Luis Obispo': [35.26, -120.64], 'San Mateo': [37.48, -122.20],
-  'Santa Barbara': [34.57, -119.85], 'Santa Clara': [37.35, -121.85],
-  'Santa Cruz': [36.97, -122.03], 'Shasta': [40.55, -122.38],
-  'Siskiyou': [41.73, -122.63], 'Solano': [38.27, -121.94],
-  'Sonoma': [38.40, -122.82], 'Stanislaus': [37.56, -120.92],
-  'Sutter': [39.14, -121.62], 'Tehama': [40.17, -122.26],
-  'Tulare': [36.40, -119.31], 'Ventura': [34.35, -119.05],
-  'Yolo': [38.66, -121.73],
-};
-
-export default function MapView({ onSelectCounty }) {
-  const [counties, setCounties] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [markers, setMarkers] = useState([]);
-  const [generatedAt, setGeneratedAt] = useState('');
+export default function MapView({ stationList, onSelectStation }) {
   const [flyTarget, setFlyTarget] = useState(null);
 
-  useEffect(() => {
-    fetchCounties()
-      .then((data) => {
-        setCounties(data.counties || []);
-        setGeneratedAt(data.generated_at || '');
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
+  const markers = stationList.map((s) => ({
+    ...s,
+    lat: s.latitude,
+    lon: s.longitude,
+  }));
 
-  useEffect(() => {
-    if (counties.length === 0) return;
-    const mapped = counties.map((c) => {
-      const coords = COUNTY_COORDS[c.county];
-      if (!coords) return null;
-      return { ...c, lat: coords[0], lon: coords[1] };
-    }).filter(Boolean);
-    setMarkers(mapped);
-  }, [counties]);
-
-  function formatTime(isoStr) {
-    if (!isoStr) return '';
-    try {
-      const d = new Date(isoStr);
-      return d.toLocaleString('en-US', {
-        timeZone: 'America/Los_Angeles',
-        month: 'short', day: 'numeric',
-        hour: 'numeric', minute: '2-digit',
-        hour12: true,
-      }) + ' PT';
-    } catch {
-      return '';
-    }
+  function freshnessColor(freshness) {
+    if (freshness === 'live') return 'rgba(100,220,100,0.9)';
+    if (freshness === 'recent') return 'rgba(253,181,21,0.9)';
+    return 'rgba(255,100,100,0.7)';
   }
 
   return (
@@ -123,6 +69,7 @@ export default function MapView({ onSelectCounty }) {
         .popup-aqi { font-size: 28px; font-weight: 200; line-height: 1; margin-bottom: 4px; }
         .popup-status { font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 6px; }
         .popup-pm25 { font-size: 13px; color: rgba(255,255,255,0.7); }
+        .popup-freshness { font-size: 11px; margin-top: 4px; }
         .popup-btn { margin-top: 8px; padding: 6px 14px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); border-radius: 20px; color: #ffffff; font-family: 'Nunito', sans-serif; font-size: 12px; cursor: pointer; width: 100%; }
         .popup-btn:hover { background: rgba(255,255,255,0.25); }
         .map-bottom { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; flex-wrap: wrap; gap: 10px; }
@@ -139,13 +86,7 @@ export default function MapView({ onSelectCounty }) {
           <div className="map-header">
             <div>
               <h2 className="map-title">California Air Quality Map</h2>
-              <p className="map-subtitle">{markers.length} counties with live AQI data</p>
-              {generatedAt && (
-                <p className="map-updated">
-                  <span className="map-updated-dot" />
-                  Last updated: {formatTime(generatedAt)}
-                </p>
-              )}
+              <p className="map-subtitle">{markers.length} monitoring stations with live AQI data</p>
             </div>
             <div className="region-btns">
               {REGION_VIEWS.map((r) => (
@@ -156,7 +97,7 @@ export default function MapView({ onSelectCounty }) {
             </div>
           </div>
 
-          {loading ? (
+          {markers.length === 0 ? (
             <div className="map-loading">Loading map data...</div>
           ) : (
             <>
@@ -169,13 +110,13 @@ export default function MapView({ onSelectCounty }) {
                   {flyTarget && <FlyTo center={flyTarget.center} zoom={flyTarget.zoom} />}
                   {markers.map((m) => (
                     <CircleMarker
-                      key={m.county}
+                      key={m.station_id}
                       center={[m.lat, m.lon]}
-                      radius={Math.max(8, Math.min(m.aqi / 4, 22))}
+                      radius={Math.max(6, Math.min(m.aqi / 5, 18))}
                       fillColor={aqiColor(m.aqi)}
-                      fillOpacity={0.8}
+                      fillOpacity={m.freshness === 'stale' ? 0.4 : 0.8}
                       stroke={true}
-                      color="rgba(255,255,255,0.3)"
+                      color={m.freshness === 'stale' ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.3)'}
                       weight={1}
                     >
                       <Tooltip direction="top" offset={[0, -8]}>
@@ -187,8 +128,13 @@ export default function MapView({ onSelectCounty }) {
                           <div className="popup-aqi" style={{ color: aqiColor(m.aqi) }}>{m.aqi}</div>
                           <div className="popup-status">{m.status}</div>
                           <div className="popup-pm25">PM2.5: {m.pm25} µg/m³</div>
-                          {onSelectCounty && (
-                            <button className="popup-btn" onClick={() => onSelectCounty(m.county)}>
+                          <div className="popup-freshness" style={{ color: freshnessColor(m.freshness) }}>
+                            {m.freshness === 'live' ? '● Live data' :
+                             m.freshness === 'recent' ? '● Updated recently' :
+                             '● Data may be stale'}
+                          </div>
+                          {onSelectStation && (
+                            <button className="popup-btn" onClick={() => onSelectStation(m.station_id, m.county)}>
                               View Forecast →
                             </button>
                           )}
@@ -207,7 +153,7 @@ export default function MapView({ onSelectCounty }) {
                   <div className="legend-item"><div className="legend-dot" style={{ background: aqiColor(175) }} />Unhealthy (151–200)</div>
                   <div className="legend-item"><div className="legend-dot" style={{ background: aqiColor(250) }} />Hazardous (201+)</div>
                 </div>
-                <div className="map-stats">117 monitoring stations across California</div>
+                <div className="map-stats">{markers.length} monitoring stations across California</div>
               </div>
             </>
           )}

@@ -1,7 +1,7 @@
 """
 Breathe California — FastAPI Backend
 Serves PM2.5 forecasts from predictions_latest.json
-Optionally reads from Azure Blob Storage or local file.
+Supports both station-level and county-level views.
 """
 
 import os
@@ -17,8 +17,8 @@ load_dotenv()
 
 app = FastAPI(
     title="Breathe California API",
-    description="PM2.5 forecast API for California counties",
-    version="1.0.0",
+    description="PM2.5 forecast API for California monitoring stations",
+    version="2.0.0",
 )
 
 # CORS — allow frontend origins
@@ -75,13 +75,11 @@ def _load_predictions() -> dict:
     """Load predictions from local file or Azure Blob. Cache for 5 minutes."""
     now = datetime.now(timezone.utc)
 
-    # Return cache if fresh (< 5 min old)
     if _cache["data"] and _cache["loaded_at"]:
         age = (now - _cache["loaded_at"]).total_seconds()
         if age < 300:
             return _cache["data"]
 
-    # Try local file first
     if os.path.exists(LOCAL_PATH):
         with open(LOCAL_PATH, "r") as f:
             data = json.load(f)
@@ -89,7 +87,6 @@ def _load_predictions() -> dict:
         _cache["loaded_at"] = now
         return data
 
-    # Try Azure Blob
     if AZURE_KEY:
         try:
             from azure.storage.blob import BlobServiceClient
@@ -109,62 +106,68 @@ def _load_predictions() -> dict:
     raise HTTPException(status_code=503, detail="No predictions available")
 
 
-def _aggregate_county(predictions: list, county_name: str) -> dict:
-    """Aggregate multiple station predictions into one county-level response."""
-    stations = [p for p in predictions if p["county"] == county_name]
-    if not stations:
-        return None
+def _station_id(prediction: dict) -> str:
+    """Generate a stable station ID from fips + coordinates."""
+    return f"{prediction['county_fips']}_{prediction['latitude']}_{prediction['longitude']}"
 
-    # Average current PM2.5 across stations
-    avg_pm25 = sum(s["current_pm25"] for s in stations) / len(stations)
-    aqi = _pm25_to_aqi(avg_pm25)
+
+def _build_station_response(p: dict) -> dict:
+    """Build a full forecast response for a single station."""
+    pm25 = p["current_pm25"]
+    aqi = _pm25_to_aqi(pm25)
     status, theme = _aqi_status(aqi)
 
-    # Average hourly forecasts — first entry is actual current PM2.5
-    hourly = [round(avg_pm25, 1)]
-    for h in range(1, 24):
-        vals = []
-        for s in stations:
-            if h < len(s["hourly_forecast"]):
-                vals.append(s["hourly_forecast"][h]["pm25"])
-        if vals:
-            avg = sum(vals) / len(vals)
-            hourly.append(round(avg, 1))
-        else:
-            hourly.append(0)
+    # Hourly: first entry is current reading, rest are model predictions
+    hourly = [round(pm25, 1)]
+    for h_data in p.get("hourly_forecast", []):
+        hourly.append(round(h_data["pm25"], 1))
 
-    # Average daily forecasts
-    daily = []
+    # Daily forecasts
     day_names = ["Today", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    for d in range(7):
-        vals = []
-        for s in stations:
-            if d < len(s["daily_forecast"]):
-                vals.append(s["daily_forecast"][d]["pm25"])
-        if vals:
-            avg = sum(vals) / len(vals)
-            day_aqi = _pm25_to_aqi(avg)
-            daily.append({
-                "day": day_names[d] if d < len(day_names) else f"Day {d+1}",
-                "aqi": day_aqi,
-                "pm25": round(avg, 1),
-            })
+    daily = []
+    for i, d_data in enumerate(p.get("daily_forecast", [])):
+        day_aqi = _pm25_to_aqi(d_data["pm25"])
+        daily.append({
+            "day": day_names[i] if i < len(day_names) else f"Day {i+1}",
+            "aqi": day_aqi,
+            "pm25": round(d_data["pm25"], 1),
+        })
 
-    # Tomorrow's PM2.5 (day 1)
-    tmr_pm25 = daily[1]["pm25"] if len(daily) > 1 else avg_pm25
+    tmr_pm25 = daily[1]["pm25"] if len(daily) > 1 else pm25
+
+    # Staleness: how old is this reading
+    now_utc = datetime.now(timezone.utc)
+    updated_at = p.get("updated_at", "")
+    hours_old = 0
+    if updated_at:
+        try:
+            updated_dt = datetime.fromisoformat(updated_at)
+            hours_old = max(0, int((now_utc - updated_dt).total_seconds() / 3600))
+        except Exception:
+            pass
+    if hours_old <= 1:
+        freshness = "live"
+    elif hours_old <= 3:
+        freshness = "recent"
+    else:
+        freshness = "stale"
 
     return {
-        "county": county_name,
+        "station_id": _station_id(p),
+        "county": p["county"],
+        "county_fips": p["county_fips"],
+        "latitude": p["latitude"],
+        "longitude": p["longitude"],
         "aqi": aqi,
-        "pm25": round(avg_pm25, 1),
+        "pm25": round(pm25, 1),
         "tmr": round(tmr_pm25, 1),
         "status": status,
         "theme": theme,
-        "desc": f"Current PM2.5 is {avg_pm25:.1f} µg/m³ across {len(stations)} monitoring stations.",
+        "freshness": freshness,
+        "desc": f"Current PM2.5 is {pm25:.1f} \u00b5g/m\u00b3.",
         "hourly": hourly,
         "weekly": daily,
-        "n_stations": len(stations),
-        "updated_at": stations[0].get("updated_at", ""),
+        "updated_at": updated_at,
     }
 
 
@@ -172,25 +175,87 @@ def _aggregate_county(predictions: list, county_name: str) -> dict:
 
 @app.get("/")
 async def root():
-    return {"service": "Breathe California API", "status": "ok"}
+    return {"service": "Breathe California API", "status": "ok", "version": "2.0.0"}
+
+
+@app.get("/api/stations")
+async def list_stations():
+    """List all monitoring stations with current AQI."""
+    data = _load_predictions()
+    stations = []
+    for p in data["predictions"]:
+        aqi = _pm25_to_aqi(p["current_pm25"])
+        status, theme = _aqi_status(aqi)
+
+        # Staleness
+        now_utc = datetime.now(timezone.utc)
+        updated_at = p.get("updated_at", "")
+        hours_old = 0
+        if updated_at:
+            try:
+                updated_dt = datetime.fromisoformat(updated_at)
+                hours_old = max(0, int((now_utc - updated_dt).total_seconds() / 3600))
+            except Exception:
+                pass
+        if hours_old <= 1:
+            freshness = "live"
+        elif hours_old <= 3:
+            freshness = "recent"
+        else:
+            freshness = "stale"
+
+        stations.append({
+            "station_id": _station_id(p),
+            "county": p["county"],
+            "latitude": p["latitude"],
+            "longitude": p["longitude"],
+            "aqi": aqi,
+            "pm25": round(p["current_pm25"], 1),
+            "status": status,
+            "theme": theme,
+            "freshness": freshness,
+        })
+    return {
+        "generated_at": data.get("generated_at", ""),
+        "n_stations": len(stations),
+        "stations": stations,
+    }
+
+
+@app.get("/api/station/{station_id}")
+async def get_station_forecast(station_id: str):
+    """Get full forecast for a specific station."""
+    data = _load_predictions()
+    for p in data["predictions"]:
+        if _station_id(p) == station_id:
+            return _build_station_response(p)
+    raise HTTPException(status_code=404, detail=f"Station '{station_id}' not found")
 
 
 @app.get("/api/counties")
 async def list_counties():
-    """List all available counties with current AQI."""
+    """List all available counties with current AQI (aggregated from stations)."""
     data = _load_predictions()
-    counties = set(p["county"] for p in data["predictions"])
+    county_map = {}
+    for p in data["predictions"]:
+        county = p["county"]
+        if county not in county_map:
+            county_map[county] = []
+        county_map[county].append(p["current_pm25"])
+
     result = []
-    for county in sorted(counties):
-        info = _aggregate_county(data["predictions"], county)
-        if info:
-            result.append({
-                "county": county,
-                "aqi": info["aqi"],
-                "pm25": info["pm25"],
-                "status": info["status"],
-                "theme": info["theme"],
-            })
+    for county in sorted(county_map.keys()):
+        avg_pm25 = sum(county_map[county]) / len(county_map[county])
+        aqi = _pm25_to_aqi(avg_pm25)
+        status, theme = _aqi_status(aqi)
+        result.append({
+            "county": county,
+            "aqi": aqi,
+            "pm25": round(avg_pm25, 1),
+            "status": status,
+            "theme": theme,
+            "n_stations": len(county_map[county]),
+        })
     return {
         "generated_at": data.get("generated_at", ""),
         "n_counties": len(result),
@@ -200,38 +265,76 @@ async def list_counties():
 
 @app.get("/api/forecast/{county}")
 async def get_forecast(county: str):
-    """Get full forecast for a specific county."""
+    """Get forecast for a county (returns list of stations in that county)."""
     data = _load_predictions()
-    result = _aggregate_county(data["predictions"], county)
-    if not result:
+    stations = [p for p in data["predictions"] if p["county"] == county]
+    if not stations:
         raise HTTPException(status_code=404, detail=f"County '{county}' not found")
-    return result
+
+    station_responses = [_build_station_response(p) for p in stations]
+
+    # Also compute county-level aggregate for the header
+    avg_pm25 = sum(s["pm25"] for s in station_responses) / len(station_responses)
+    aqi = _pm25_to_aqi(avg_pm25)
+    status, theme = _aqi_status(aqi)
+
+    # Pick the station with the freshest data as representative
+    best = min(station_responses, key=lambda s: {"live": 0, "recent": 1, "stale": 2}.get(s["freshness"], 3))
+
+    return {
+        "county": county,
+        "aqi": aqi,
+        "pm25": round(avg_pm25, 1),
+        "tmr": best["tmr"],
+        "status": status,
+        "theme": theme,
+        "desc": f"Current PM2.5 is {avg_pm25:.1f} \u00b5g/m\u00b3 across {len(stations)} monitoring stations.",
+        "hourly": best["hourly"],
+        "weekly": best["weekly"],
+        "n_stations": len(stations),
+        "stations": station_responses,
+        "updated_at": best["updated_at"],
+    }
 
 
 @app.post("/api/chat")
 async def chat(body: dict):
-    """Chat endpoint — forwards to Gemini with AQI context."""
+    """Chat endpoint — forwards to Groq LLM with AQI context."""
     message = body.get("message", "")
-    county = body.get("county", "Fresno")
+    county = body.get("county", "")
+    station_id = body.get("station_id", "")
 
     if not message:
         raise HTTPException(status_code=400, detail="Message required")
 
-    # Get current AQI context
     data = _load_predictions()
-    county_data = _aggregate_county(data["predictions"], county)
-
     context = ""
-    if county_data:
-        context = (
-            f"Current air quality in {county}: "
-            f"AQI {county_data['aqi']} ({county_data['status']}), "
-            f"PM2.5 {county_data['pm25']} µg/m³. "
-            f"Tomorrow forecast: {county_data['tmr']} µg/m³. "
-            f"Based on {county_data['n_stations']} monitoring stations."
-        )
 
-    # Try Groq via REST API (no SDK dependency issues)
+    # Try station-level context first, then county
+    if station_id:
+        for p in data["predictions"]:
+            if _station_id(p) == station_id:
+                resp = _build_station_response(p)
+                context = (
+                    f"Current air quality at station in {resp['county']}: "
+                    f"AQI {resp['aqi']} ({resp['status']}), "
+                    f"PM2.5 {resp['pm25']} \u00b5g/m\u00b3. "
+                    f"Tomorrow forecast: {resp['tmr']} \u00b5g/m\u00b3."
+                )
+                break
+    elif county:
+        stations = [p for p in data["predictions"] if p["county"] == county]
+        if stations:
+            avg_pm25 = sum(s["current_pm25"] for s in stations) / len(stations)
+            aqi = _pm25_to_aqi(avg_pm25)
+            status, _ = _aqi_status(aqi)
+            context = (
+                f"Current air quality in {county}: "
+                f"AQI {aqi} ({status}), "
+                f"PM2.5 {avg_pm25:.1f} \u00b5g/m\u00b3. "
+                f"Based on {len(stations)} monitoring stations."
+            )
+
     if GROQ_KEY:
         try:
             import requests as req
@@ -263,23 +366,13 @@ async def chat(body: dict):
             )
             r.raise_for_status()
             return {"reply": r.json()["choices"][0]["message"]["content"]}
-        except Exception as e:
+        except Exception:
             return {"reply": f"I couldn't connect to the AI service. {context}"}
 
-    # Fallback: simple rule-based response
-    if county_data:
-        aqi = county_data["aqi"]
-        if aqi <= 50:
-            advice = "Air quality is great! Perfect for outdoor activities."
-        elif aqi <= 100:
-            advice = "Air quality is acceptable. Sensitive individuals should limit prolonged outdoor exertion."
-        elif aqi <= 150:
-            advice = "Sensitive groups should reduce outdoor activity. Consider wearing a mask."
-        else:
-            advice = "Air quality is poor. Stay indoors if possible."
-        return {"reply": f"{county}: AQI {aqi} ({county_data['status']}). {advice}"}
-
-    return {"reply": "I don't have data for that county right now."}
+    # Fallback
+    if context:
+        return {"reply": context}
+    return {"reply": "I don't have data for that location right now."}
 
 
 @app.get("/api/health")

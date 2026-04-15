@@ -1,15 +1,26 @@
 /**
  * API client for Breathe California backend.
- * Replaces stubs/data.js with live data from FastAPI.
+ * Supports both station-level and county-level data.
  */
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
+export async function fetchStations() {
+  const res = await fetch(`${API_BASE}/api/stations`);
+  if (!res.ok) throw new Error('Failed to fetch stations');
+  return res.json();
+}
+
+export async function fetchStationForecast(stationId) {
+  const res = await fetch(`${API_BASE}/api/station/${encodeURIComponent(stationId)}`);
+  if (!res.ok) throw new Error(`Failed to fetch forecast for station ${stationId}`);
+  return res.json();
+}
+
 export async function fetchCounties() {
   const res = await fetch(`${API_BASE}/api/counties`);
   if (!res.ok) throw new Error('Failed to fetch counties');
-  const data = await res.json();
-  return data;
+  return res.json();
 }
 
 export async function fetchForecast(county) {
@@ -18,11 +29,11 @@ export async function fetchForecast(county) {
   return res.json();
 }
 
-export async function sendChat(message, county) {
+export async function sendChat(message, county, stationId) {
   const res = await fetch(`${API_BASE}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, county }),
+    body: JSON.stringify({ message, county, station_id: stationId }),
   });
   if (!res.ok) throw new Error('Chat request failed');
   const data = await res.json();
