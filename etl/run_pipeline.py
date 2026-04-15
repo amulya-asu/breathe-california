@@ -110,6 +110,78 @@ def main():
     df_live = fetch_live(stations, now)
     print(f"  Live rows: {len(df_live)}")
 
+    # ── Prediction fallback for missing stations ──
+    live_keys = set()
+    if len(df_live) > 0:
+        for _, r in df_live.iterrows():
+            live_keys.add((r["county_fips"], r["latitude"], r["longitude"]))
+
+    missing = []
+    for _, s in stations.iterrows():
+        key = (s["county_fips"], s["latitude"], s["longitude"])
+        if key not in live_keys:
+            missing.append(s)
+
+    if missing:
+        print(f"  Missing live data for {len(missing)} stations — trying prediction fallback...")
+        try:
+            prev_blob = container.get_blob_client("predictions_latest.json")
+            prev_data = json.loads(prev_blob.download_blob().readall())
+            prev_map = {}
+            for p in prev_data.get("predictions", []):
+                pk = (p["county_fips"], p["latitude"], p["longitude"])
+                prev_map[pk] = p
+
+            # Check how old the previous predictions are (cap at 3h)
+            prev_gen = prev_data.get("generated_at", "")
+            hours_old = 0
+            if prev_gen:
+                try:
+                    prev_dt = datetime.fromisoformat(prev_gen)
+                    hours_old = (now - prev_dt).total_seconds() / 3600
+                except Exception:
+                    pass
+
+            fallback_count = 0
+            if hours_old <= 3:
+                for s in missing:
+                    key = (s["county_fips"], s["latitude"], s["longitude"])
+                    prev = prev_map.get(key)
+                    if prev and prev.get("hourly_forecast"):
+                        # Use the 1h prediction as the "current" PM2.5
+                        predicted_pm25 = prev["hourly_forecast"][0]["pm25"]
+                        # Get weather from Open-Meteo for this station
+                        try:
+                            wr = requests.get("https://api.open-meteo.com/v1/forecast", params={
+                                "latitude": s["latitude"], "longitude": s["longitude"],
+                                "hourly": "temperature_2m,dew_point_2m,pressure_msl,wind_direction_10m,wind_speed_10m,precipitation",
+                                "forecast_days": 1,
+                            }, timeout=10)
+                            wr.raise_for_status()
+                            wh = wr.json()["hourly"]
+                            df_live = pd.concat([df_live, pd.DataFrame([{
+                                "county_fips": s["county_fips"], "latitude": s["latitude"],
+                                "longitude": s["longitude"], "county": s["county"],
+                                "datetime_hour": now, "pm25": float(predicted_pm25),
+                                "temp_c": float(wh["temperature_2m"][-1]),
+                                "dewpoint_c": float(wh["dew_point_2m"][-1]),
+                                "pressure_hpa": float(wh["pressure_msl"][-1]),
+                                "wind_dir_deg": float(wh["wind_direction_10m"][-1]),
+                                "wind_speed_mps": float(wh["wind_speed_10m"][-1]),
+                                "precip_1hr_mm": float(wh["precipitation"][-1]),
+                            }])], ignore_index=True)
+                            fallback_count += 1
+                            time.sleep(0.1)
+                        except Exception:
+                            pass
+                print(f"  Fallback filled: {fallback_count} stations (from predictions {hours_old:.1f}h old)")
+            else:
+                print(f"  Previous predictions too old ({hours_old:.1f}h) — skipping fallback")
+        except Exception as e:
+            print(f"  Fallback failed: {e}")
+
+    print(f"  Total live rows after fallback: {len(df_live)}")
+
     if len(df_live) == 0:
         print("ERROR: No live data fetched. Exiting.")
         return

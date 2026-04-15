@@ -1,10 +1,10 @@
 county_fips,latitude,longitude,county,place_name
-06001,37.687526,-121.784217,Alameda,Livermore SE #1
-06001,37.68975,-121.77155,Alameda,Livermore SE #2
+06001,37.687526,-121.784217,Alameda,Livermore 1
+06001,37.68975,-121.77155,Alameda,Livermore 2
 06001,37.701222,-121.903019,Alameda,Pleasanton
-06001,37.743065,-122.169935,Alameda,Oakland SW
-06001,37.793624,-122.263376,Alameda,Oakland NW #1
-06001,37.814781,-122.282347,Alameda,Oakland NW #2
+06001,37.743065,-122.169935,Alameda,Oakland 1
+06001,37.793624,-122.263376,Alameda,Oakland 2
+06001,37.814781,-122.282347,Alameda,Oakland 3
 06001,37.864767,-122.302741,Alameda,Berkeley
 06007,39.76168,-121.84047,Butte,Chico
 06009,38.20185,-120.680277,Calaveras,San Andreas
@@ -13,9 +13,9 @@ county_fips,latitude,longitude,county,place_name
 06013,37.936013,-122.026154,Contra Costa,Concord
 06013,37.9604,-122.356811,Contra Costa,San Pablo
 06019,36.634225,-120.382331,Fresno,Fresno South
-06019,36.710833,-119.7775,Fresno,Fresno SE #1
-06019,36.72639,-119.733,Fresno,Fresno SE #2
-06019,36.78538,-119.77321,Fresno,Fresno NE
+06019,36.710833,-119.7775,Fresno,Fresno 1
+06019,36.72639,-119.733,Fresno,Fresno 2
+06019,36.78538,-119.77321,Fresno,Fresno 3
 06019,36.819449,-119.716433,Fresno,Clovis
 06019,36.985119,-119.658339,Fresno,Millerton
 06023,41.047117,-123.675233,Humboldt,Hoopa
@@ -25,10 +25,10 @@ county_fips,latitude,longitude,county,place_name
 06027,36.487823,-117.871036,Inyo,Keeler
 06027,36.595556,-118.049167,Inyo,Lone Pine
 06027,37.155494,-118.293547,Inyo,Big Pine
-06027,37.360684,-118.330783,Inyo,Inyo North NW #1
-06027,37.362137,-118.417478,Inyo,Inyo North NW #2
-06029,35.046528,-118.162833,Kern,Mojave SE #1
-06029,35.04944,-118.18893,Kern,Mojave SE #2
+06027,37.360684,-118.330783,Inyo,Inyo North 1
+06027,37.362137,-118.417478,Inyo,Inyo North 2
+06029,35.046528,-118.162833,Kern,Mojave 1
+06029,35.04944,-118.18893,Kern,Mojave 2
 06029,35.385574,-119.015009,Kern,Bakersfield
 06029,35.642943,-117.715066,Kern,Kern North
 06031,36.102244,-119.56565,Kings,Corcoran
@@ -42,9 +42,9 @@ county_fips,latitude,longitude,county,place_name
 06041,37.97231,-122.520004,Marin,San Rafael
 06045,39.15047,-123.20655,Mendocino,Ukiah
 06045,39.39861,-123.35872,Mendocino,Willits
-06047,37.281853,-120.433671,Merced,Merced SE #1
-06047,37.289732,-120.429718,Merced,Merced SE #2
-06047,37.30832,-120.480456,Merced,Merced NW
+06047,37.281853,-120.433671,Merced,Merced 1
+06047,37.289732,-120.429718,Merced,Merced 2
+06047,37.30832,-120.480456,Merced,Merced 3
 06051,37.962069,-119.120278,Mono,Lee Vining
 06053,36.209286,-121.126371,Monterey,King City
 06053,36.48187,-121.73333,Monterey,Robles Del Rio
@@ -60,26 +60,26 @@ county_fips,latitude,longitude,county,place_name
 06065,33.71969,-116.1897,Riverside,Riverside South
 06065,33.72537,-116.206842,Riverside,Indio
 06065,33.944713,-116.830074,Riverside,Riverside North
-06065,33.99636,-117.4924,Riverside,Jurupa Valley NW #1
-06065,33.99958,-117.41601,Riverside,Jurupa Valley NW #2
+06065,33.99636,-117.4924,Riverside,Jurupa Valley 1
+06065,33.99958,-117.41601,Riverside,Jurupa Valley 2
 06067,38.494475,-121.211131,Sacramento,Sloughhouse
-06067,38.56844,-121.49311,Sacramento,Sacramento SW
-06067,38.593322,-121.503795,Sacramento,Sacramento NW
+06067,38.56844,-121.49311,Sacramento,Sacramento 1
+06067,38.593322,-121.503795,Sacramento,Sacramento 2
 06067,38.613779,-121.368014,Sacramento,Arden-Arcade
 06067,38.683304,-121.164457,Sacramento,Folsom
 06069,36.843425,-121.3621,San Benito,San Benito South
 06071,34.030833,-117.61722,San Bernardino,Ontario
 06071,34.26464,-116.86147,San Bernardino,Big Bear City
 06071,34.510961,-117.32554,San Bernardino,Victorville
-06073,32.552824,-117.047345,San Diego,San Diego SW #1
+06073,32.552824,-117.047345,San Diego,San Diego 1
 06073,32.578165,-116.921374,San Diego,San Diego South
 06073,32.631242,-117.059088,San Diego,Chula Vista
 06073,32.6509,-116.365,San Diego,Milguatay
-06073,32.710177,-117.142665,San Diego,San Diego SW #2
+06073,32.710177,-117.142665,San Diego,San Diego 2
 06073,32.789565,-116.944308,San Diego,El Cajon
 06073,32.842318,-116.768293,San Diego,Alpine
-06073,32.845709,-117.123964,San Diego,San Diego NW #1
-06073,32.985428,-117.082198,San Diego,San Diego NW #2
+06073,32.845709,-117.123964,San Diego,San Diego 3
+06073,32.985428,-117.082198,San Diego,San Diego 4
 06073,33.217046,-117.396249,San Diego,San Diego North
 06073,33.362593,-117.09023,San Diego,Pala
 06075,37.765946,-122.399044,San Francisco,San Francisco
@@ -97,8 +97,8 @@ county_fips,latitude,longitude,county,place_name
 06083,34.63782,-120.4575,Santa Barbara,Lompoc
 06083,34.890667,-120.432844,Santa Barbara,Orcutt
 06085,36.999571,-121.574684,Santa Clara,Gilroy
-06085,37.338135,-121.849783,Santa Clara,San Jose NW #1
-06085,37.348497,-121.894898,Santa Clara,San Jose NW #2
+06085,37.338135,-121.849783,Santa Clara,San Jose 1
+06085,37.348497,-121.894898,Santa Clara,San Jose 2
 06087,36.98332,-121.98822,Santa Cruz,Live Oak
 06087,37.06315,-122.083092,Santa Cruz,Brackney
 06089,40.55013,-122.38092,Shasta,Redding

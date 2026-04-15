@@ -312,8 +312,7 @@ export default function Hero({ county, stationId, forecast, stationList, onSelec
                           className={`county-option${s.station_id === stationId ? ' active' : ''}`}
                           onClick={() => selectItem(s)}
                         >
-                          <span>{s.name || s.county} <span style={{fontSize:'11px',opacity:0.5}}>{s.county}</span></span>
-                          <span className="county-option-aqi">AQI {s.aqi}</span>
+                          <span><strong>{s.name || s.county}</strong> <span style={{fontSize:'11px',opacity:0.4}}>{s.county}</span></span>
                         </div>
                       ))
                     )}
