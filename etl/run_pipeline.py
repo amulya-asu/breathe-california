@@ -139,6 +139,14 @@ def main():
     print("Running inference...")
     df_latest = df.sort_values("datetime_hour").groupby(STATION_COLS).tail(1).reset_index(drop=True)
 
+    # Build place_name lookup from stations.csv
+    place_lookup = {}
+    if "place_name" in stations.columns:
+        for _, s in stations.iterrows():
+            key = (s["county_fips"], s["latitude"], s["longitude"])
+            place_lookup[key] = s["place_name"]
+        print(f"  Place names loaded: {len(place_lookup)}")
+
     HOURLY_HORIZONS = list(range(1, 25))
     DAILY_HORIZONS = [24, 48, 72, 96, 120, 144, 168]
     ALL_HORIZONS = sorted(set(HOURLY_HORIZONS + DAILY_HORIZONS))
@@ -171,7 +179,7 @@ def main():
         all_predictions.append({
             "county_fips": row["county_fips"],
             "county": row["county"],
-            "place_name": row.get("place_name", row["county"]),
+            "place_name": place_lookup.get((row["county_fips"], row["latitude"], row["longitude"]), row["county"]),
             "latitude": float(row["latitude"]),
             "longitude": float(row["longitude"]),
             "current_pm25": float(row["pm25"]),

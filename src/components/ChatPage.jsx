@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { sendChat } from '../api';
 
 const WELCOME = "Hi! I'm your California air quality assistant. Ask me about any city, county, or place in California — I'll find the closest monitoring data and give you health-aware advice.";
 const MAX_INPUT = 500;
@@ -101,14 +100,8 @@ export default function ChatPage({ stationList, county, stationId }) {
     const detectedCounty = detectCounty(text, stationList) || county || 'Fresno';
 
     try {
-      const res = await fetch(`${API_BASE}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, county: detectedCounty, station_id: stationId || '' }),
-      });
-      if (!res.ok) throw new Error('Failed');
-      const data = await res.json();
-      setMessages((prev) => [...prev, { role: 'bot', text: data.reply }]);
+      const reply = await sendChat(text, detectedCounty, stationId || '');
+      setMessages((prev) => [...prev, { role: 'bot', text: reply }]);
     } catch {
       setMessages((prev) => [...prev, { role: 'bot', text: 'Sorry, I could not connect to the AI service right now.' }]);
     } finally {
