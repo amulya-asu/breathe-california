@@ -56,19 +56,29 @@ const CITY_TO_COUNTY = {
   'joshua tree': 'San Bernardino', 'big bear': 'San Bernardino',
 };
 
-function detectCounty(message, stationList) {
+function detectLocation(message, stationList) {
   const lower = message.toLowerCase();
 
-  // Check city/place mapping first
+  // Check station place names first (e.g., "gilroy", "bakersfield", "portola")
+  if (stationList) {
+    for (const s of stationList) {
+      const name = (s.name || '').toLowerCase();
+      if (name && name.length > 2 && lower.includes(name)) {
+        return { county: s.county, station_id: s.station_id };
+      }
+    }
+  }
+
+  // Check city/place mapping
   for (const [city, county] of Object.entries(CITY_TO_COUNTY)) {
-    if (lower.includes(city)) return county;
+    if (lower.includes(city)) return { county, station_id: '' };
   }
 
   // Check direct county names from station list
   if (stationList) {
     const counties = [...new Set(stationList.map(s => s.county))];
     for (const county of counties) {
-      if (lower.includes(county.toLowerCase())) return county;
+      if (lower.includes(county.toLowerCase())) return { county, station_id: '' };
     }
   }
 
@@ -96,11 +106,13 @@ export default function ChatPage({ stationList, county, stationId }) {
     setMessages((prev) => [...prev, { role: 'user', text }]);
     setLoading(true);
 
-    // Detect county from message, fall back to current county or Fresno
-    const detectedCounty = detectCounty(text, stationList) || county || 'Fresno';
+    // Detect location from message, fall back to current context
+    const detected = detectLocation(text, stationList);
+    const chatCounty = detected?.county || county || 'Fresno';
+    const chatStationId = detected?.station_id || stationId || '';
 
     try {
-      const reply = await sendChat(text, detectedCounty, stationId || '');
+      const reply = await sendChat(text, chatCounty, chatStationId);
       setMessages((prev) => [...prev, { role: 'bot', text: reply }]);
     } catch {
       setMessages((prev) => [...prev, { role: 'bot', text: 'Sorry, I could not connect to the AI service right now.' }]);

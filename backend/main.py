@@ -6,7 +6,7 @@ Supports both station-level and county-level views.
 
 import os
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
@@ -303,7 +303,7 @@ async def get_forecast(county: str):
 
 @app.post("/api/chat")
 async def chat(body: dict):
-    """Chat endpoint — forwards to Groq LLM with AQI context."""
+    """Chat endpoint — forwards to Groq LLM with full AQI context."""
     message = body.get("message", "")
     county = body.get("county", "")
     station_id = body.get("station_id", "")
@@ -313,31 +313,52 @@ async def chat(body: dict):
 
     data = _load_predictions()
     context = ""
+    resp = None
 
     # Try station-level context first, then county
     if station_id:
         for p in data["predictions"]:
             if _station_id(p) == station_id:
                 resp = _build_station_response(p)
-                context = (
-                    f"Current air quality at station in {resp['county']}: "
-                    f"AQI {resp['aqi']} ({resp['status']}), "
-                    f"PM2.5 {resp['pm25']} \u00b5g/m\u00b3. "
-                    f"Tomorrow forecast: {resp['tmr']} \u00b5g/m\u00b3."
-                )
                 break
-    elif county:
+
+    if not resp and county:
+        # Find best station in the county
         stations = [p for p in data["predictions"] if p["county"] == county]
         if stations:
-            avg_pm25 = sum(s["current_pm25"] for s in stations) / len(stations)
-            aqi = _pm25_to_aqi(avg_pm25)
-            status, _ = _aqi_status(aqi)
-            context = (
-                f"Current air quality in {county}: "
-                f"AQI {aqi} ({status}), "
-                f"PM2.5 {avg_pm25:.1f} \u00b5g/m\u00b3. "
-                f"Based on {len(stations)} monitoring stations."
-            )
+            resp = _build_station_response(stations[0])
+
+    if not resp:
+        # Try matching place_name from the message
+        msg_lower = message.lower()
+        for p in data["predictions"]:
+            place = p.get("place_name", "").lower()
+            if place and len(place) > 2 and place in msg_lower:
+                resp = _build_station_response(p)
+                break
+
+    if resp:
+        # Build detailed context with hourly + weekly data
+        now_utc = datetime.now(timezone.utc)
+        hourly_lines = []
+        for i, pm in enumerate(resp.get("hourly", [])):
+            t = now_utc + timedelta(hours=i)
+            label = "Now" if i == 0 else t.strftime("%-I%p").lower()
+            hourly_lines.append(f"{label}: {pm} \u00b5g/m\u00b3")
+
+        weekly_lines = []
+        for d in resp.get("weekly", []):
+            weekly_lines.append(f"{d['day']}: PM2.5 {d['pm25']} \u00b5g/m\u00b3 (AQI {d['aqi']})")
+
+        context = (
+            f"Location: {resp['name']} ({resp['county']} County)\n"
+            f"Current: AQI {resp['aqi']} ({resp['status']}), PM2.5 {resp['pm25']} \u00b5g/m\u00b3\n"
+            f"Data freshness: {resp['freshness']}\n"
+            f"Tomorrow forecast: {resp['tmr']} \u00b5g/m\u00b3\n\n"
+            f"Next 24 hours (PM2.5): {', '.join(hourly_lines[:12])}\n"
+            f"... {', '.join(hourly_lines[12:])}\n\n"
+            f"7-day forecast:\n" + '\n'.join(weekly_lines)
+        )
 
     if GROQ_KEY:
         try:
@@ -355,16 +376,19 @@ async def chat(body: dict):
                             "role": "system",
                             "content": (
                                 "You are an air quality assistant for Breathe California. "
-                                "Respond in 2-3 sentences. Be helpful and health-focused. "
-                                "Use the provided air quality data to give specific advice."
+                                "You have access to real-time PM2.5 data, 24-hour hourly forecasts, "
+                                "and 7-day daily forecasts for 118 monitoring stations across California. "
+                                "Use the provided data to give specific, accurate answers. "
+                                "Include relevant numbers from the data. "
+                                "Be helpful and health-focused. Keep responses concise (3-5 sentences)."
                             ),
                         },
                         {
                             "role": "user",
-                            "content": f"Context: {context}\n\nQuestion: {message}",
+                            "content": f"Data:\n{context}\n\nQuestion: {message}",
                         },
                     ],
-                    "max_tokens": 200,
+                    "max_tokens": 350,
                 },
                 timeout=10,
             )
