@@ -357,7 +357,7 @@ Persistence baseline MAE: 4.06 — **25% improvement**.
 
 ## Team
 
-**Team Nebraska** — Capstone 2025
+**Team Nebraska** — Capstone 2026
 
 - Akhilesh Budati
 - Amulya Pingili
