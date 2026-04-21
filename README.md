@@ -63,31 +63,115 @@ AirNow API + OpenMeteo API
 
 ### Prerequisites
 
-- Python 3.8+
-- Node.js 18+
+- Python 3.12+
+- Node.js 20+
 - A Groq API key — [get one here](https://console.groq.com/)
+- (Optional) An AirNow API key — [get one here](https://docs.airnowapi.org/)
 
-### 1. Backend
+---
+
+### Quick Start — Frontend Only (no local backend)
+
+If you only want to run the UI locally against the deployed production backend:
+
+```bash
+git clone https://github.com/amulya-asu/breathe-california.git
+cd breathe-california
+npm install
+
+# Create .env.local (overrides .env.production for dev)
+echo "VITE_API_URL=https://breathe-api.kindsky-8919ccb9.eastus.azurecontainerapps.io" > .env.local
+
+npm run dev
+```
+
+Open `http://localhost:5173`. Done — no Python/Azure setup needed.
+
+---
+
+### Full Local Setup — Backend + Frontend
+
+The backend needs `predictions_latest.json` (generated hourly by the ETL, stored in Azure Blob).
+
+**Step 1 — Backend:**
 
 ```bash
 cd backend
 pip install -r requirements.txt
 cp .env.example .env
 # Edit .env and add your GROQ_API_KEY
-# Place predictions_latest.json in this folder
+```
+
+**Step 2 — Get `predictions_latest.json`** (choose one):
+
+Option A — Ask a teammate to send you the file, place it in `backend/`.
+
+Option B — Download from Azure Blob (requires Azure account access):
+```bash
+az login
+az storage blob download \
+  --account-name aqidatalake \
+  --container-name predictions \
+  --name predictions_latest.json \
+  --file backend/predictions_latest.json \
+  --auth-mode login
+```
+
+Option C — Let the backend auto-fetch from Azure. Add to `backend/.env`:
+```
+AZURE_STORAGE_ACCOUNT=aqidatalake
+AZURE_STORAGE_KEY=<the_storage_key>
+AZURE_BLOB_CONTAINER=predictions
+```
+
+**Step 3 — Run backend:**
+```bash
+cd backend
 uvicorn main:app --reload --port 3001
 ```
-
 Runs on `http://localhost:3001`
 
-### 2. Frontend
-
+**Step 4 — Run frontend:**
 ```bash
+cd ..
 npm install
+echo "VITE_API_URL=http://localhost:3001" > .env.local
 npm run dev
 ```
-
 Runs on `http://localhost:5173`
+
+---
+
+### Running the ETL Pipeline Locally (optional)
+
+Only needed if you want to regenerate `predictions_latest.json` yourself. This is normally done by GitHub Actions hourly.
+
+```bash
+cd etl
+pip install -r requirements.txt
+
+# Set required env vars
+export AZURE_STORAGE_ACCOUNT=aqidatalake
+export AZURE_STORAGE_KEY=<key>
+export AZURE_BLOB_CONTAINER=predictions
+export AIRNOW_API_KEY=<your_airnow_key>
+
+python run_pipeline.py
+```
+
+Takes 1-5 minutes. Downloads stations.csv + 30 XGBoost models + history from Azure, fetches live AirNow + OpenMeteo data, runs inference, uploads new `predictions_latest.json`.
+
+---
+
+### Troubleshooting
+
+**"predictions_latest.json not found"** — see Step 2 above. The file is not in git because it's generated hourly.
+
+**"AuthorizationFailed" on `az` commands** — your Azure account doesn't have access to the `aqidatalake` storage account. Ask the team lead to add you as `Storage Blob Data Reader`.
+
+**Backend returns 503 "No predictions available"** — either place `predictions_latest.json` in `backend/`, or configure Azure credentials in `.env`.
+
+**Frontend shows "Failed to fetch"** — check `VITE_API_URL` in `.env.local` points to a running backend.
 
 ---
 
