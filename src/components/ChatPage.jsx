@@ -106,10 +106,10 @@ export default function ChatPage({ stationList, county, stationId }) {
     setMessages((prev) => [...prev, { role: 'user', text }]);
     setLoading(true);
 
-    // Detect location from message, fall back to current context
+    // Detect location from message. If detected, use ONLY that (don't fall back to current page state).
     const detected = detectLocation(text, stationList);
-    const chatCounty = detected?.county || county || 'Fresno';
-    const chatStationId = detected?.station_id || stationId || '';
+    const chatCounty = detected ? detected.county : (county || 'Fresno');
+    const chatStationId = detected ? detected.station_id : (stationId || '');
 
     try {
       const reply = await sendChat(text, chatCounty, chatStationId);
