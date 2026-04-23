@@ -322,20 +322,42 @@ async def chat(body: dict):
                 resp = _build_station_response(p)
                 break
 
-    if not resp and county:
-        # Find best station in the county
-        stations = [p for p in data["predictions"] if p["county"] == county]
-        if stations:
-            resp = _build_station_response(stations[0])
-
+    # Try matching place_name from the message (specific station mentioned)
+    is_county_query = False
     if not resp:
-        # Try matching place_name from the message
         msg_lower = message.lower()
         for p in data["predictions"]:
             place = p.get("place_name", "").lower()
             if place and len(place) > 2 and place in msg_lower:
                 resp = _build_station_response(p)
                 break
+
+    # If still nothing and we have a county, aggregate across all county stations
+    if not resp and county:
+        county_stations = [p for p in data["predictions"] if p["county"] == county]
+        if county_stations:
+            is_county_query = True
+            station_responses = [_build_station_response(p) for p in county_stations]
+            avg_pm25 = sum(s["pm25"] for s in station_responses) / len(station_responses)
+            aqi = _pm25_to_aqi(avg_pm25)
+            status, theme = _aqi_status(aqi)
+            best = min(station_responses, key=lambda s: {"live": 0, "recent": 1, "stale": 2}.get(s["freshness"], 3))
+            resp = {
+                "name": county,
+                "county": county,
+                "aqi": aqi,
+                "pm25": round(avg_pm25, 1),
+                "status": status,
+                "tmr": best["tmr"],
+                "freshness": best["freshness"],
+                "hourly": best["hourly"],
+                "weekly": best["weekly"],
+                "n_stations": len(station_responses),
+                "station_breakdown": [
+                    f"{s['name']}: AQI {s['aqi']}, PM2.5 {s['pm25']}µg/m³ ({s['freshness']})"
+                    for s in station_responses
+                ],
+            }
 
     if resp:
         # Build detailed context with hourly + weekly data
@@ -350,15 +372,26 @@ async def chat(body: dict):
         for d in resp.get("weekly", []):
             weekly_lines.append(f"{d['day']}: PM2.5 {d['pm25']} \u00b5g/m\u00b3 (AQI {d['aqi']})")
 
-        context = (
-            f"Location: {resp['name']} ({resp['county']} County)\n"
-            f"Current: AQI {resp['aqi']} ({resp['status']}), PM2.5 {resp['pm25']} \u00b5g/m\u00b3\n"
-            f"Data freshness: {resp['freshness']}\n"
-            f"Tomorrow forecast: {resp['tmr']} \u00b5g/m\u00b3\n\n"
-            f"Next 24 hours (PM2.5): {', '.join(hourly_lines[:12])}\n"
-            f"... {', '.join(hourly_lines[12:])}\n\n"
-            f"7-day forecast:\n" + '\n'.join(weekly_lines)
-        )
+        if is_county_query:
+            context = (
+                f"Location: {resp['county']} County (averaged across {resp['n_stations']} stations)\n"
+                f"County average: AQI {resp['aqi']} ({resp['status']}), PM2.5 {resp['pm25']} \u00b5g/m\u00b3\n"
+                f"Tomorrow forecast: {resp['tmr']} \u00b5g/m\u00b3\n\n"
+                f"Per-station breakdown:\n" + '\n'.join(resp['station_breakdown']) + "\n\n"
+                f"Forecast (next 24h): {', '.join(hourly_lines[:12])}\n"
+                f"... {', '.join(hourly_lines[12:])}\n\n"
+                f"7-day forecast:\n" + '\n'.join(weekly_lines)
+            )
+        else:
+            context = (
+                f"Location: {resp['name']} ({resp['county']} County)\n"
+                f"Current: AQI {resp['aqi']} ({resp['status']}), PM2.5 {resp['pm25']} \u00b5g/m\u00b3\n"
+                f"Data freshness: {resp['freshness']}\n"
+                f"Tomorrow forecast: {resp['tmr']} \u00b5g/m\u00b3\n\n"
+                f"Next 24 hours (PM2.5): {', '.join(hourly_lines[:12])}\n"
+                f"... {', '.join(hourly_lines[12:])}\n\n"
+                f"7-day forecast:\n" + '\n'.join(weekly_lines)
+            )
 
     if GROQ_KEY:
         try:
