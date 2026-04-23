@@ -375,12 +375,9 @@ async def chat(body: dict):
                         {
                             "role": "system",
                             "content": (
-                                "You are an air quality assistant for Breathe California. "
-                                "You have access to real-time PM2.5 data, 24-hour hourly forecasts, "
-                                "and 7-day daily forecasts for 118 monitoring stations across California. "
-                                "Use the provided data to give specific, accurate answers. "
-                                "Include relevant numbers from the data. "
-                                "Be helpful and health-focused. Keep responses concise (3-5 sentences)."
+                                "You are a California air quality assistant. "
+                                "Answer using the data provided. Be concise and specific. "
+                                "If the question is about a different location than the data, say so."
                             ),
                         },
                         {
